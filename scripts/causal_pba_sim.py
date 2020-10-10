@@ -374,6 +374,8 @@ class sorting_causal_pba(causal_setting):
         cumprob = 0
         cumproblist = []
         self.msgbin = 1
+        if self.msgbin ==1 and self.accessed_msg==self.ordering[k]:
+                self.msgbin = 0
         for k in range(len(self.ordering)):
             if cumprob+self.prior[self.ordering[k]] > 0.5:
                 if k==0:
@@ -384,9 +386,7 @@ class sorting_causal_pba(causal_setting):
                 else:
                     self.g0cutoff=k
                     self.g0prob = math.fsum(cumproblist)
-                break
-            if self.msgbin ==1 and self.accessed_msg==self.ordering[k]:
-                self.msgbin = 0
+                break 
             cumprob+=self.prior[self.ordering[k]]
             cumproblist.append(self.prior[self.ordering[k]])
     def update_prior(self, g0mult, g1mult):
@@ -450,6 +450,40 @@ class sorting_causal_pba(causal_setting):
                 newprior[msg] = 0.0
         self.prior = newprior
         self.ordering = newordering
+    def full_step(self,p=None, q=None, stepno=None):
+        """Automatically perform the whole process of getting a value
+        from the BSC, performing the bayesian update of the
+        probability belief function followed by generating the next
+        prior, checking if the encoder gets a
+        new bit, and then sorting the ordering and updating
+        G0 and G1.
+
+        :param p: BSC truth probability. Defaults to ``p``.
+        :param q: Bit arrival probability. Defaults to ``q``.
+        :param stepno: Step number. Defaults to ``stepno``.
+
+        :returns: A dictionary in the form
+            ``{"accessed_msg":self.accessed_msg,"mode":self.mode,
+            "modeprob":self.prior[self.ordering[0]],"stepno":stepno,
+            "bsc_bit":result from self.bsc_oracle(),"msg_bin":self.msgbin}``.
+        """
+        if p is None:
+            p = self.p
+        if q is None:
+            q = self.q
+        if stepno is None:
+            stepno = self.stepno
+        bsc_bit = self.bsc_oracle(p)
+        bayesian_mult = self.bayesian_multipliers_bsc(bsc_bit,p)
+        self.update_prior(bayesian_mult["G0"],bayesian_mult["G1"])
+        self.next_prior(q,stepno)
+        self.sort_ordering()
+        self.update_accessed_msg(update_prob=q)
+        self.update_g0()
+        self.stepno+=1
+        return {"accessed_msg":self.accessed_msg,"mode":self.mode,\
+            "modeprob":self.prior[self.ordering[0]],"stepno":stepno,\
+            "bsc_bit":bsc_bit,"msg_bin":self.msgbin}
 
 class tern_tree_node:
     """A node in the ternary tree representing the vocabulary
@@ -683,7 +717,7 @@ class tree_causal_pba(causal_setting):
                 if pref == self.accessed_msg[:len(pref)]:
                     self.msgbin = 0
     def update_partition(self, step=None, searchlim=None, k=None,\
-            better_prior=None,streaming=None):
+            better_prior=None,streaming=None,q=None):
         """Search tree while keeping track of the highest-probability
         string encountered as ``mode``, applying prior-update at
         each node. Add each untraveled edge to ``g1``. When either
@@ -702,7 +736,8 @@ class tree_causal_pba(causal_setting):
             Defaults to ``better_prior``.
         :param streaming: Whether the model is in a streaming setting (searches
             for mode up to full possible depth if false, stops searching at
-            ``searchlim`` if true.
+            ``searchlim`` if true).
+        :param q: Bit arrival probability. Defaults to ``q``.
         """
         if step is None:
             step = self.stepno
@@ -714,6 +749,8 @@ class tree_causal_pba(causal_setting):
             better_prior = self.better_prior
         if streaming is None:
             streaming=self.streaming
+        if q is None:
+            q = self.q
         self.modeprob = 0.0
         self.mode = ""
         focusnode = self.tree_root
@@ -724,7 +761,7 @@ class tree_causal_pba(causal_setting):
         self.bottomnodes = []
         ended_by_limit = True
         while focusnode.depth <= searchlim and self.g0prob > 0.5:
-            focusnode.update_prior(step=step, better=better_prior)
+            focusnode.update_prior(q=q, step=step, better=better_prior)
             if self.g0prob*focusnode.term_prob > self.modeprob:
                 self.mode = focusnode.pref
                 self.modeprob = self.g0prob*focusnode.term_prob
@@ -821,6 +858,40 @@ class tree_causal_pba(causal_setting):
             else:
                 self.g1.append(treesofinterest[0][0])
             treesofinterest.pop(0)
+    def full_step(self,p=None, q=None, stepno=None):
+        """Automatically perform the whole process of getting a value
+        from the BSC, performing the bayesian update of the
+        probability belief function followed by generating the next
+        prior, checking if the encoder gets a
+        new bit, and then sorting the ordering and updating
+        G0 and G1.
+
+        :param p: BSC truth probability. Defaults to ``p``.
+        :param q: Bit arrival probability. Defaults to ``q``.
+        :param stepno: Step number. Defaults to ``stepno``.
+
+        :returns: A dictionary in the form
+            ``{"accessed_msg":self.accessed_msg,"mode":self.mode,
+            "modeprob":self.prior[self.ordering[0]],"stepno":stepno,
+            "bsc_bit":result from self.bsc_oracle(),"msg_bin":self.msgbin}``.
+        """
+        if p is None:
+            p = self.p
+        if q is None:
+            q = self.q
+        if stepno is None:
+            stepno = self.stepno
+        bsc_bit = self.bsc_oracle(p)
+        bayesian_mult = self.bayesian_multipliers_bsc(bsc_bit,p)
+        self.update_posterior(bayesian_mult["G0"],bayesian_mult["G1"])
+        self.update_partition(q=q)
+        self.update_accessed_msg(update_prob=q)
+        self.update_msgbin()
+        self.stepno+=1
+        return {"accessed_msg":self.accessed_msg,"mode":self.mode,\
+            "modeprob":self.modeprob,"stepno":stepno,\
+            "bsc_bit":bsc_bit,"msg_bin":self.msgbin}
+
 
 def bsc_capacity(p):
     """The capacity of a BSC with crossover probability ``p``.

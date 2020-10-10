@@ -1,6 +1,6 @@
 import numpy as np
 import csv
-import pbaclasses
+from causal_pba_sim import waeber_pba
 import sys
 import os
 import math
