@@ -10,14 +10,12 @@
 \usepackage{algorithmic}
 \usepackage{bbold}
 \usepackage{tikz}
-\usepackage[hidelinks]{hyperref}
-\usepackage[T1]{fontenc}
 \usetikzlibrary{calc, shapes, backgrounds}
-
 \title{Developing Feedback-Based Coding Schemes for Stochastic Bit Arival
 Times}
 \author{Ali Cataltepe\thanks{Thanks to Evan Gunter for suggesting to look at
-trees in the first place.}\\ Mentor: Victoria Kostina, Co-mentor: Nian Guo}
+trees in the first place.}\\ Mentor: Victoria Kostina, Co-mentor: Nian Guo\\
+Caltech SURF 2020\vspace{-3em}}
 \date{}
 \IEEEoverridecommandlockouts
 \begin{document}
@@ -232,16 +230,18 @@ Designate this function
 m_i:\{1,\dots,\min(i,n)\} \to (0,1)\\
 	m_i(l) = \begin{cases}
 	\mathrm{Pois}(i\cdot q)(l) & l < \min(i,n) \\
-	1-\mathrm{CDF}(\mathrm{Pois}(i\cdot q))(\min(i,n)) & l= \min(i,n)
+        \mbox{\scriptsize $1-\mathrm{CDF}(\mathrm{Pois}(i\cdot q))(\min(i,n))$}
+          & l= \min(i,n)
 	\end{cases}.
 \end{multline}
 Now, we
 define the probability mass function
 \begin{multline}
-t_i: \{1,\dots,\lfloor (1-H(p)) \cdot i\rfloor, (1-H(p))\cdot i\} \to (0,1)\\
+  \mbox{\scriptsize $t_i: \{1,\dots,\lfloor (1-H(p)) \cdot i\rfloor, (1-H(p))\cdot i\} \to (0,1)$}\\
 t_i(l) = \begin{cases}
 	m(l) & l \leq \lfloor (1-H(p)) \cdot i\rfloor\\
-	1-\mathrm{CDF}(m)((1-H(p))\cdot i) & l = (1-H(p))\cdot i
+        \mbox{\scriptsize $1-\mathrm{CDF}(m)((1-H(p))\cdot i)$}
+        & l = (1-H(p))\cdot i
 \end{cases}.
 \end{multline}
 This is the probability mass function
